@@ -24,3 +24,4 @@ github_username:  huxt2014
 # Build settings
 markdown: kramdown
 theme: minima
+future: true
