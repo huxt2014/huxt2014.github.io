@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "gevent.monkey之patch_socket"
+title:  "gevent之monkey patch"
 date:   2017-01-09 19:48:08 +0800
 categories: python gevent
 ---
@@ -109,7 +109,7 @@ error EAGAIN，在Python里面会被转化成Exception。捕获到异常后，re
 
 需要注意的是，recv接受args，并将args全部传入_socket.socket.recv中。第三方module使用的socket被替换成gevent的socket后，调用recv传输参数会不会产生冲突还要具体分析。
 
-在进行monkey patch时，gevent官方推荐尽量早地patch。如果在import第三方module时，第三方module进行了类似local_socket=socket.socket，然后用local_socket进行IO操作，那monkey patch是不会起作用的。此外，如果第三方module没有用Python标准库中的socket，而是用的其他实现，monkey patch也不会起作用。
+在进行monkey patch时，gevent官方推荐尽量早地patch。因为如果在import第三方module之后进行monkey patch，而第三方module在import中进行了类似local_socket=socket.socket的操作，然后用local_socket进行IO操作，那monkey patch是不会起作用的。此外，如果第三方module没有使用Python标准库中的socket，而是用的其他实现，monkey patch也不会起作用。
 
 
 [python-greenlet]: http://blog.csdn.net/fjslovejhl/article/details/38821673

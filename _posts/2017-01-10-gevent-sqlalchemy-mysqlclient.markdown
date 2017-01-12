@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "让SQLAlchemy支持gevent：mysqlclient"
+title:  "让SQLAlchemy支持gevent：mysqlclient异步IO"
 date:   2017-01-10 19:48:08 +0800
 categories: python gevent
 ---
