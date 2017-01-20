@@ -39,11 +39,11 @@ update、insert 和 delete都会获得IX lock。
 
 row-level lock可以理解成read-write lock，但是具体来讲，row-level又分为三种类型：record lock, gap lock 和 next-key lock。
 
-record lock仅仅是锁住一条或多条记录。
+1. record lock仅仅是锁住一条或多条记录。
 
-gap lock可以锁住某一个gap。所谓的gap，就是index中值与值之间的空隙。举例而言，在一个整数类型的列上建了索应，则(1,20)可以是一个gap。如果这个gap被加上了锁，那么(1,20)之间的row无法被插入。除了两个值之间，类似于(负无穷,1)和(20,正无穷)也可以是一个gap。
+2. gap lock可以锁住某一个gap。所谓的gap，就是index中值与值之间的空隙。举例而言，在一个整数类型的列上建了索应，则(1,20)可以是一个gap。如果这个gap被加上了锁，那么(1,20)之间的row无法被插入。除了两个值之间，类似于(负无穷,1)和(20,正无穷)也可以是一个gap。
 
-next-key lock就是一个record lock加上一个gap lock，其中gap lock加在对应record之前的一个gap上。比如说，一个index上有10、11、13、20这么几个值，next-key lock可以是：(负无穷,10]，(10,11]，(11,13]，(13, 20]，(20,正无穷)。
+3. next-key lock就是一个record lock加上一个gap lock，其中gap lock加在对应record之前的一个gap上。比如说，一个index上有10、11、13、20这么几个值，next-key lock可以是：(负无穷,10]，(10,11]，(11,13]，(13, 20]，(20,正无穷)。
 
 在官方文档上暂时没有找到明确的加锁规则，因此先列举一些样例吧：
 
@@ -51,15 +51,21 @@ next-key lock就是一个record lock加上一个gap lock，其中gap lock加在�
 
 2. 如果在index上有值10、 20，那么select ... where id in (10, 13, 20) for update 会锁住10、 20以及(10,20)，select ... where id in (15, 20)会锁住20以及(10,20)，select ... where id in (13, 15)会锁住(10,20)。
 
+3. insert只会添加record lock。
+
 # 避免死锁
 
-如果需要对单张表的多条记录进行修改，则在transaction一开始就应该获取所有的锁。
+1. 如果需要对单张表的多条记录进行修改，则在transaction一开始就应该获取所有的锁。
 
-如果无法一次性获得单张表的所有锁，或者需要对多张表进行修改，则按全局一致的顺序依次获得所有锁。
+2. 如果无法一次性获得单张表的所有锁，或者需要对多张表进行修改，则按全局一致的顺序依次获得所有锁。
 
-MySQL自己会对死锁进行检测，在必要的时候强制中断transaction。
+3. 让transaction尽可能地短。
 
-show engine innodb status 命令可以查看transaction中锁的情况，设置innodb_status_output_locks = 1时可以看到lock的详细情况。Mariadb在10.0.14版本才加入了innodb_status_output_locks配置项。
+4. 妥善建立索引。
+
+5. MySQL自己会对死锁进行检测，在必要的时候强制中断transaction。
+
+6. show engine innodb status 命令可以查看transaction中锁的情况，设置innodb_status_output_locks = 1时可以看到lock的详细情况。Mariadb在10.0.14版本才加入了innodb_status_output_locks配置项。
 
 # 应用举例
 
