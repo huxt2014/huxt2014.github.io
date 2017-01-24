@@ -35,7 +35,7 @@ update、insert 和 delete都会获得IX lock。
 
 # 获取row-level lock
 
-总体来讲，InnoDB是这样来获得row-level lock的：在搜索表的时候，对任何扫描过的行，都会获得这些行的锁。换句话说，如果因为没有建索引而进行了全表搜索，则所有行都会被锁住；如果建了索引，只有在搜索索引过程中命中了的行才会被锁住。
+总体来讲，InnoDB是这样来获得row-level lock的：在搜索表的时候，对任何扫描过的行，都会获得这些行的锁。需要注意的是，row-level lock都是加在索引上的，如果创建表的时候没有定义索引，InnoDB也会建立一个内部索引。因此，如果查询进行了全表搜索，则所有行都会被锁住；如果查询使用了索引，只有在搜索索引过程中命中了的行才会被锁住。
 
 row-level lock可以理解成read-write lock，但是具体来讲，row-level又分为三种类型：record lock, gap lock 和 next-key lock。
 

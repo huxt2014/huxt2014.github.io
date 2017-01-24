@@ -134,6 +134,13 @@ print(end_time-begin_time)
 以上只涉及最基础的异步查询，在使用SQLAlchemy开发应用时，一般都会使用到connection pool，SQLAlchemy已有的pool是否可以直接支持coroutine的并发，是下一步需要确认的。
 
 
+补充：
+
+[这个回答][orm-syncio]里面解释了为什么在需要显式调用callback的异步框架里面使用 ORM会力不从心，主要原因是在复杂系统中，开发者很难精确地知道每个IO操作所在的位置并利用callback使其异步执行。一旦漏掉了某个IO操作，那么这个IO阻塞住的话，会阻塞当前线程正在处理的所有请求。
+
+即使知道了系统中所有IO的位置，很多时候也无法改变（没有修改API底层实现的权限）或者很难去改变（顺序执行的代码和callback风格的代码无法轻易兼容）。在操作数据库的时候，虽然可以从DPAPI层面将IO异步化来改善这种情况，但是也不能根本性地解决问题（例如Lock在同步和异步中使用的是不一样的实现）。
+
+gevent的优势在于，monkey_patch几乎可以将所有类型的同步IO操作都替换成异步IO，并且保持接口不变。通过这种方式，上层应用依旧调用的是同步的IO接口，但是接口底层已经被异步化了，这就是implicit asynchronous。
 
 
 
@@ -142,3 +149,4 @@ print(end_time-begin_time)
 [MySQL-python]:https://pypi.python.org/pypi/MySQL-python/1.2.5
 [pep249]:https://www.python.org/dev/peps/pep-0249/
 [waiter-sample]: https://github.com/PyMySQL/mysqlclient-python/blob/master/samples/waiter_gevent.py
+[orm-syncio]: http://stackoverflow.com/questions/16491564/how-to-make-sqlalchemy-in-tornado-to-be-async
