@@ -3,6 +3,7 @@ layout: post
 title:  "Python中的那些开源ORM"
 date:   2017-02-19 17:48:08 +0800
 categories: python
+tags: web
 ---
 
 ORM(object relationship mapping)解决的是在使用面向对象的编程风格访问关系型数据库时，对象的设计与表的设计不匹配问题。在Java中，耳熟能详的就是Hibernate了，在Python中比较有名的是SQLAlchemy与Django ORM，此外还有其他一些迷你的ORM。

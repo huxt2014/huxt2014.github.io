@@ -3,6 +3,7 @@ layout: post
 title:  "Mariadb中索引的基本使用"
 date:   2017-05-23 19:48:08 +0800
 categories: mariadb
+tags: database
 ---
 
 这篇文章记录了mariadb中索引的基本概念以及一般性用法，内容绝大部分来自于对mariadb官方文档、mysql官方文档以及各类博客的的归纳与总结，方便实际使用中的快速查阅。对于特定的使用场景，还需参考官方文档或咨询专家。

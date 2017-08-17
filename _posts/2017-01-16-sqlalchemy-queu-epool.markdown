@@ -3,6 +3,7 @@ layout: post
 title:  "SQLAlchemy QueuePool浅析"
 date:   2017-01-16 19:48:08 +0800
 categories: python sqlalchemy
+tags: web
 ---
 
 之前已经确定了让mysqlclient支持gevent异步IO的方法，实现起来还是比较方便的，但是对于SQLAlchemy中的connection pool是否支持gevent还是有一定疑虑。因为一般pool中会用到lock同步，而thread的lock肯定是和coroutine的lock是有差别的。
@@ -10,6 +11,8 @@ categories: python sqlalchemy
 看了一遍SQLAlchemy QueuePool的源码，很快发现monkey patch可以解决问题。此外，对于官方文档介绍的QueuePool以及connection的一些特性，在源码中可以看到是如何实现的，在此记录一下。
 
 # lazy initialization 和 overflow
+
+---
 
 对于一个最简单的pool，例如python3标准库queue.Queue，一般在初始化的时候会顺带初始化里面的对象，这种初始化可以称之为eager initialization。此外，pool的大小一般是确定的。在SQLAlchemy的QueuePool中，针对以上两个行为（初始化和确定大小）提供了不同的方式：lazy initialization和 overflow。
 
@@ -71,11 +74,15 @@ class QueuePool(Pool):
 
 # facade for DBAPI connection
 
+---
+
 QueuePool里面存储的对象是数据库连接，而数据库连接中常见的异常就是连接丢失/连接失效。对于这种异常，通常做法是重新连接，但是“重新连接”这一逻辑放在哪里呢？OOP中有Single responsibility principle，在“重新连接”这个逻辑中，SQLAlchemy中实践这一原则的方式是为DBAPI connection提供一个facade：_ConnectionRecord。
 
-在QueuePool中实际存的是_ConnectionRecord对象，一个_ConnectionRecord对象内置了一个DBAPI connection。如果DBAPI connection失效了，_ConnectionRecord负责重新连接。
+在QueuePool中实际存的是_ConnectionRecord对象，一个_ConnectionRecord对象内置了一个DBAPI connection。如果DBAPI connection失效了，_ConnectionRecord负责重新连接。所以在一个_ConnectionRecord对象的生命周期当中，可能会使用到多个DBAPI connection。
 
 # return on dereference
+
+---
 
 当connection从pool取出后，应该要保证使用完之后放回pool，这一逻辑可以在业务代码中显式地保证，但是SQLAlchemy还提供了一个隐式的保证。
 
@@ -102,14 +109,18 @@ weakref引用的对象并不是_ConnectionRecord，而是_ConnectionFairy。_Con
 
 # high level proxy
 
+---
+
 在业务代码中，需要调用engine.connect()得到数据库连接，利用数据库连接对数据库进行操作，而这个连接是sqlalchemy.engine.base.Connection对象。这个对象提供了高一层次访问数据库的接口，相当于又加了一个facade。
 
 所以，对于业务代码中使用的连接，有这样的facade逻辑：sqlalchemy.engine.base.Connection -> sqlalchemy.pool._ConnectionFairy -> sqlalchemy.pool._ConnectionRecord -> DBAPI connection。
 
 另外一个值得一提的是，engine.connect()中所调用的大多数函数都reentrant，其中的例外只有对QueuePool的操错和对一个全局set对象的操作。对于QueuePool的使用已经利用锁进行线程同步了，而set默认是线程安全的。
 
+# 小结
 
-以上。
+---
 
+SQLAlchemy的QueuePool在初始化的时候不需要初始化里面的数据库连接，且在某一时刻能够checkout的连接数可以超过Pool的size；对于数据库连接失效的处理可以添加在Pool的checkin和checkout逻辑中，但是SQLAlchemy将这一操作单独放在_ConnectionRecord类中；数据库连接使用完成后需要放回到Pool中，SQLAlchemy使用了weakref来保证这一过程。
 
 [weekref]: https://docs.python.org/3.6/library/weakref.html

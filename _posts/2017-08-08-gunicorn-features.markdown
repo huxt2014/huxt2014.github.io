@@ -2,7 +2,8 @@
 layout: post
 title:  "Gunicorn的特性与实现"
 date:   2017-08-08 21:00:00 +0800
-categories: python
+categories: web
+tags: web
 ---
 
 Gunicorn(Green Unicorn)是一个Python实现的WSGI HTTP Server，它实现了pre-fork worker model，并且支持在不停止服务的情况下更新配置和升级。这篇文章通过对Gunicorn的学习，来看看这些特性可以如何实现。

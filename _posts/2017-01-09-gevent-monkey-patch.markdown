@@ -3,6 +3,7 @@ layout: post
 title:  "gevent之monkey patch"
 date:   2017-01-09 19:48:08 +0800
 categories: python gevent
+tags: python
 ---
 
 最近快速刷完了[UNIX Network Programming,Volume 2][unix-network-p], [The Linux Programming Interface][linux-p-i]两本书，然后继续刷 [Seven Concurrency Models in Seven Weeks][seven-con]。这本书里面首先提到了线程并发模型，加上没有提到但是也很常见的进程并发，Python的标准库对这两种已经有比较好的支持了，看源码也不会很费劲。而Functional Programming，Actor等模型Python要么是支持得不那么好，要么是没有直接的支持。但是，利用coroutine进行并发在Python社区里面是一致比较活跃的，因此打算赶紧上手。

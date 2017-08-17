@@ -3,6 +3,7 @@ layout: post
 title:  "MySQL InnoDB内部锁(internal lock)浅析"
 date:   2017-01-14 19:48:08 +0800
 categories: mysql
+tags: database
 ---
 
 # 基本介绍

@@ -3,6 +3,7 @@ layout: post
 title:  "深入scikit-learn：基于svm的分类"
 date:   2017-08-01 21:00:00 +0800
 categories: machine-learning
+tags: machine-learning
 ---
 
 scikit-learn封装了libsvm和liblinear以提供SVM的使用接口，可以用于分类和回归。libsvm和liblinear均由台湾国立大学的Machine Learning and Data Mining Group主导开发。本文基于台湾国立大学林轩田教授在coursera.org上开设的《机器学习技法》课程，简要回顾了使用SVM进行分类的理论基础，并且探究了一下scikit-learn是如何封装libsvm的。

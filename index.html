@@ -4,19 +4,47 @@ layout: default
 
 <div class="home">
 
-  <h1 class="page-heading">Posts</h1>
+{% assign rawtags = "" %}
+{% for post in site.posts %}
+	{% assign ttags = post.tags | join:'|' | append:'|' %}
+	{% assign rawtags = rawtags | append:ttags %}
+{% endfor %}
+{% assign rawtags = rawtags | split:'|' | sort %}
 
+{% assign tags = "" %}
+{% for tag in rawtags %}
+	{% if tag != "" %}
+		{% if tags == "" %}
+			{% assign tags = tag | split:'|' %}
+		{% endif %}
+		{% unless tags contains tag %}
+			{% assign tags = tags | join:'|' | append:'|' | append:tag | split:'|' %}
+		{% endunless %}
+	{% endif %}
+{% endfor %}
+
+<h1 >分类</h1>
+{% for tag in tags %}
+	<a href="#{{ tag | slugify }}" class="post-tag"> {{ tag }} </a>
+{% endfor %}
+
+<hr/>
+
+{% for tag in tags %}
+
+  <h2 id="{{ tag | slugify }}" >{{ tag }}</h2>
   <ul class="post-list">
     {% for post in site.posts %}
-      <li>
-        <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
-
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title | escape }}</a>
-        </h2>
-      </li>
+      {% if post.tags contains tag %}
+        <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">
+		  <li>{{ post.title | escape }}<span class="post-date">{{ post.date | date: "%Y-%m-%d" }}</span>
+        </a>
+	  </li>
+      {% endif %}
     {% endfor %}
   </ul>
+
+{% endfor%}
 
   <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
 

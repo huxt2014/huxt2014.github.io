@@ -1,8 +1,9 @@
 ---
 layout: post
-title:  "asyncio与协程并发"
+title:  "Python基础：asyncio与协程并发"
 date:   2017-02-03 10:00:00 +0800
 categories: python
+tags: python
 ---
 
 asyncio是Python 3中加入的标准库，在这个标准库中加入了ioloop以及对native coroutine的支持。对于ioloop，基本上所有的异步框架都会有，例如gevent、tornado、pika，它们实现的原理都是一样的，只是经过不同框架的封装之后使用接口略有不同，看源码都是很容易理解的，所以就不多说了。但是对于native coroutine，由于之前没深入了解过，所以就多用点文字总结一下看完部分源码后的理解。

@@ -1,8 +1,9 @@
 ---
 layout: post
-title:  "深入sklearn: decision tree and CART"
+title:  "深入scikit-learn：decision tree and CART"
 date:   2017-08-11 21:00:00 +0800
 categories: machine-learning
+tags: machine-learning
 ---
 
 决策树算法是一种即可用于classification，也可用于regression的一类算法。本文基于sklearn中决策树算法的实现，用伪代码简要记录了sklearn中CART的实现方法。

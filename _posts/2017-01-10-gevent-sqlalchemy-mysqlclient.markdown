@@ -3,6 +3,7 @@ layout: post
 title:  "让SQLAlchemy支持gevent：mysqlclient异步IO"
 date:   2017-01-10 19:48:08 +0800
 categories: python gevent
+tags: web
 ---
 
 前一篇文章提到，monkey patch不能将任意的同步IO替换为异步IO，那问题来了，monkey patch能替换数据库IO么。这篇文章主要来看一下如何将SQLAlchemy的数据库IO替换成gevent异步IO。

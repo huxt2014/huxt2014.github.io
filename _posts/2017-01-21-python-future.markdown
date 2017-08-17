@@ -1,8 +1,9 @@
 ---
 layout: post
-title:  "Python 3中的future对象"
+title:  "Python基础：各类并发中的future对象"
 date:   2017-01-21 14:48:08 +0800
 categories: python
+tags: python
 ---
 
 虽然Python有GIL的限制，但并发并不是问题。Python的标准库提供了[threading包][threading-doc]以及[multiprocessing包][multiprocessing]来支持线程与进程的并发，在Python 3中更是提供了[concurrent 包][concurrent-doc]这一更高层的封装。此外，Python 3还通过新增的await、async def关键字，以及[asyncio包][asyncio-doc]提供了native coroutine的支持。要深入了解Python的并发，这些标准库中的包是不错的学习材料。

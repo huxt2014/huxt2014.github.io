@@ -1,8 +1,9 @@
 ---
 layout: post
-title:  "Python 3中native coroutine的前世今生"
+title:  "Python基础：native coroutine的前世今生"
 date:   2017-01-22 14:48:08 +0800
 categories: python
+tags: python
 ---
 
 继gevent之后，又慢慢在填python native coroutine的坑。虽说属于CPython官方原生支持，但是为啥native coroutine感觉没有gevent那么直观呢。不过好歹也算是慢慢弄懂了，用帖子来记录一下对native coroutine的理解。

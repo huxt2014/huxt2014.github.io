@@ -3,6 +3,7 @@ layout: post
 title:  "深入Python：Buffer Protocol和Numpy实现"
 date:   2017-07-28 21:00:00 +0800
 categories: python
+tags: python
 ---
 
 最近在使用SQLAlchemy+mysqlclient+Pandas进行数据处理的时候发现了一个比较尴尬的问题，那就是Python太吃内存了。按理说不应该这样的，因为Pandas底层用的是Numpy，已经是直接操作内存块而不是操作Python对象了，并且mysqlclient的关键模块是用C写的。但实际情况是从数据库读取600W条记录（4个字段，VARCHAR * 3+BIGINT * 1）时，内存使用量超过了2G。
