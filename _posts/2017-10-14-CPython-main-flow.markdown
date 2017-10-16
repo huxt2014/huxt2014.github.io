@@ -1,12 +1,14 @@
 ---
 layout: post
-title:  "python解释器：执行流程概述"
+title:  "CPython：执行流程概述"
 date:   2017-10-14 21:00:00 +0800
 categories: python
 tags: python
 ---
 
-Python是一种动态的解释型语言，在运行Python程序时，python解释器会逐条读取指令然后做出相对应的动作。虽然这种方式效率偏低，但是提高了灵活性。这篇文章基于Python-3.5.3的源码，以python解释器的程序入口为起点，简要介绍一下python解释器的初始化以及四种运行模式，为后续内容做好铺垫。
+Python是一种动态的解释型语言，在运行Python程序时，python解释器会逐条读取指令然后做出相对应的动作。虽然这种方式效率偏低，但是有其他的优点（例如较高的灵活性）。
+
+python解释器有多种实现，其中官方的参考实现是CPython，也就是用C实现的。这篇文章基于CPython-3.5.3的源码，以CPython的程序入口为起点，简要介绍一下python解释器的初始化以及四种运行模式，为后续内容做好铺垫。为方便起见，后文提到的python解释器均指CPython。
 
 # 程序入口
 
