@@ -6,21 +6,19 @@ categories: auth
 tags: auth
 ---
 
-OAuth协议是一个用于第三方授权的协议，其为在不提供认证凭据（用户名密码等）的情况下授权给第三方访问指定的资源提供了一个解决方案。OAuth协议有1.0和2.0两个版本，2.0不兼容1.0。这篇文章基于[rfc6749](https://tools.ietf.org/html/rfc6749)与[rfc6750](https://tools.ietf.org/html/rfc6750)简单介绍一下OAuth2.0协议的授权流程和应用场景。
+OAuth协议是一个用于第三方授权的协议，其为在不提供认证凭据的情况下授权给第三方访问指定的资源提供了一个解决方案。OAuth协议有1.0和2.0两个版本，2.0不兼容1.0。这篇文章基于[rfc6749][oauth2-core]与[rfc6750][bearer-token]简单介绍一下OAuth2.0协议的授权流程和应用场景。
 
 # 基本原理
 
 ---
 
-你在使用某个APP的时候，这个APP希望访问你github账户的某些非公开信息，你也打算允许它这样做。既然是非公开信息，那么github显然不能随意给其他人。在传统的方法中，你需要将你github账户的认证凭据交给APP，APP利用你的凭据在github认证后，就可以获得你的账户信息了。但是，这样做有一系列问题，例如APP拥有与你一样的权限，也就是所有权限，你不知道它还会不会做其他事情；你不知道APP会不会把你的登录凭据给其他人。
+考虑这样一个场景：你在使用某个APP的时候，这个APP希望访问你github账户的某些非公开信息，你也打算允许它这样做。既然是非公开信息，那么github显然不能随意给其他人，任何人要访问这些信息必须要先通过认证。在传统的方法中，你需要将你github账户的认证凭据（最常见的就是用户名和密码）交给APP，APP利用你的凭据在github认证（最常见的就是登录）后，就可以获得你的账户信息了。但是，这样做有一系列问题，例如APP拥有与你一样的权限（也就是所有权限），你不知道它还会不会做其他事情；你不知道APP会不会把你的登录凭据给其他人。
 
-以上场景中存在在的问题来源于传统授权的实现方式：**认证即授权**。具体来讲，当你利用认证凭据（最常见的就是用户名和密码）在服务端进行认证后（最常见的就是登录），你就获得了对应的权限；当你需要获得某些权限，那么你必须进行认证：这两者是无法分割的。
+以上场景中存在在的问题来源于传统授权的实现方式：**认证即授权**。具体来讲，当你利用认证凭据在服务端进行认证后，你就获得了对应的权限；当你需要获得某些权限，那么你必须进行认证：这两者是无法分割的。为了解决上述问题，OAuth提供了一个新的机制：将认证与授权分割开来。
 
-OAuth提供了一个新的机制，将认证与授权分割开来。在新的机制下，当这个APP希望访问你github的非公开信息，它会将你重定向至github的授权界面，你在github完成认证与授权操作后，github会生成一个token并交给APP，之后APP就可以凭这个token访问你的账户信息了。
+在OAuth提供的机制中有四个主体：resource owner（你），client（APP），resource server（github），authorization server（github的授权中心）。resource owner用自己的认证凭据到authorization server换取授权凭据，并将授权凭据交给client，client使用授权凭据可以在resource server访问指定范围内的资源。在这样一个交互过程中，认证凭据和授权凭据被分割开了，client仅需要持有授权凭据而不需要用户的认证凭据。
 
-在OAuth提供的场景中有四个主体：你（user/resource owner），APP（client），github（resource server），github的授权界面（authorization server）。在这样一个交互过程中，认证凭据和授权凭据被分割开了，client可以仅仅持有授权凭据来访问resource server，而OAuth就是为这样一个交互过程提供了一个规范。
-
-以上的交互过程可以由下图概括，即client在resource owner的协助下获得authorization grant，之后client凭借authorization grant换取access token，最终使用access token来访问资源。图中仅仅描绘了一个大概流程，在具体实现中OAuth提供了四种可选方案。
+在新的机制中，resource owner利用登录凭据换取授权凭据并交给client涉及到了四个主体，具体实现起来略微复杂，因此OAuth为这样一个流程提供了一个规范，概括如下图。图中仅仅描绘了一个大概流程，在具体实现中OAuth提供了四种可选方案。
 
 {% highlight text %}
      +--------+                               +---------------+
@@ -49,19 +47,19 @@ OAuth提供了一个新的机制，将认证与授权分割开来。在新的机
 
 #### 1. Authorization Code
 
-client将user重定向至authorization server，user在authorization server完成授权获得authorization code。之后authorization server将user重定向至client，此过程会携带authorization code。client在authorization server将authorization code替换成access token。
+client将user重定向(302)至authorization server，user在authorization server完成认证获得authorization code。之后authorization server将user重定向(302)至client，此过程会携带authorization code。client在authorization server将authorization code替换成access token。
 
 #### 2. Implicit
 
-client在user的帮助下直接从authorization server获得token，而不是获得authorization code后再去换取token。简化版的authorization code流程，适用于用脚本语言（例如js）在浏览器中实现的clients。
+client将user重定向(302)至authorization server，user在authorization server完成认证获得access token。之后authorization server将user重定向(302)至client，此过程会携带access token。
 
 #### 3. Resource Owner Password Credentials
 
-client直接持有用户的认证凭据，然后使用用户的认证凭据直接作为authorization code换取access token。这种方式仅适用于可信赖的client（不会窃取用户凭据）。
+client获得user的认证凭据，然后使用user的认证凭据到authorization server直接换取access token。这种方式中client仅仅需要使用一次user的认证凭据而不需要储存下来，仅适用于可信赖的client（不会窃取用户凭据）。
 
 #### 4. Client Credentials
 
-client拥有自己的凭据，使用自己的凭据（而不是用户的凭据）作为authorization code换取access token。这种方式适用于资源本身就归client所有，或者在资源上对应实施了某种额外的访问策略。
+client拥有自己的认证凭据（或者其他类似的信息），使用自己的凭据（而不是用户的凭据）直接到authorization server换取access token。这种方式适用于资源本身就归client所有，或者在资源上对应实施了某种额外的访问策略。
 
 # Client相关规范
 
@@ -85,32 +83,32 @@ client可以通过各种方式完成注册，例如HTML表单、证书、authori
 
 ---
 
-#### 1. access token的格式与validition
+#### 1. 种类与实现方式
 
-access token承载了授权信息，每一个token应该有访问权限、有效期等信息，但是作为一个相对抽象的对象，OAuth并没有做更具体的规定。规范中说明access token可以有如下两种实现策略：
+access token作为一个授权凭证，应该关联有访问权限、有效期等信息，但是[rfc6749][oauth2-core]并没有做更具体的规定，例如token的结构、如何关联信息等。[rfc6749][oauth2-core]中仅仅推荐了两种实现策略：
 
 1. access token仅仅作为一个检索依据，其本身不携带访问权限、有效期等信息，resource server需要根据access token去其他地方（通常是authorization server）查询。
-2. access token本身就携带了访问权限、有效期等信息，resource server能够仅仅通过access token就完成validation。
+2. access token本身就携带了访问权限、有效期等信息，通过解析access token可以得到。
 
-所以，access token的格式以及resource server如何做validation很大程度上由具体实现来确定。不过，对于第一种策略，OAuth给出了一个示例：[bearer token](https://tools.ietf.org/html/rfc6750)。
-
-#### 2. bearer token的传输方式
-
-access token通常以字符串的形式存在，在client访问resource server的时候需要携带这个凭据。携带的方式可以有如下三种：
+[rfc6750][bearer-token]中给出了一个access token的样例：bearer token。bearer token有这样的属性：1. 任何持有人拥有相同的权限，可以以相同的方式使用该token。2. 持有人不需要证明持有的合法性。但是[rfc6750][bearer-token]也仅仅说明了bearer token如何在client和resource server之间传输：
 
 1. Authorization Request Header Field：放在header的Authorization字段中。
 2. Form-Encoded Body Parameter：放在request-body中，以access_token标示。
-3. URI Query Parameter：放在RRI中。
+3. URI Query Parameter：放在URI中。
 
-需要注意的是，OAuth规定涉及到access token传输的交互必须用TLS……
-
-#### 3. access scope
+#### 2. Access Scope
 
 OAuth规定通过scope字段来确定授权范围，也就是说，每个access token都有一个scope属性，通过scope来确定可以访问哪些资源，不可以访问哪些资源。scope字段的内容是个大小写敏感的字符串，字符串中能够用空格分割出多个小段。至于字段内容与权限如何对应，OAuth并没有给出规定，由具体实现来确定。
 
-#### 4. Refresh token
+#### 3. Validate
 
-在上述流程中，client利用authorization grant可以换取token。对于这个换取的操作，OAuth还提供了一个可选方案，即利用authorization grant可以换取refresh token+token，其中，refresh token可以在token失效的时候用来获得新的token。这样的流程如下图所示：
+client访问resource server的时候需要携带access token，resource server必须对access token进行验证，然后确定client是否有对应的权限。为了完成这个工作，client必须在resource server处对access token进行验证（例如服务之间的通信），或者基于某种事先与resource server协商好的方法自行对access token进行验证（例如JWT）。对于这一块内容，[rfc6749][oauth2-core]并没有做相关的说明，所以如何鉴定access token很大程度上由具体实现来确定。
+
+不过，与bearer token一样，另外有一个规范（[rfc7662][introspection]）提供了一个示例：Token Introspection。在这种方式中，Authorization server提供了一个Introspection Endpoint，resource server可以访问这个endpoint来验证access token的相关信息。
+
+#### 4. Refresh Token
+
+在上述流程中，client利用authorization grant可以换取token。对于这个换取的操作，OAuth还提供了一个可选方案，即利用authorization grant可以换取refresh token+token。refresh token可以在token失效的时候用来获得新的token，或者更改权限。这样的流程如下图所示：
 
 {% highlight text %}
   +--------+                                           +---------------+
@@ -155,8 +153,12 @@ OAuth 2.0可以有如下几种应用：
 
 1. OAuth 2.0交互流程的规范仅仅是为HTTP协议制定的，在他协议下的使用就看大家各自发挥了。
 2. OAuth 2.0 的client可以是web applications, desktop applications, mobile phones, 或者living room devices. 
-3. OAuth 2.0 规范并没有规定签名、加密等内容，这些内容依赖与TLS.
+3. OAuth 2.0 规范并没有规定签名、加密等内容，所以在传输敏感信息（各类token）的时候都依赖于TLS／HTTPS。
 4. OAuth 2.0没有规定resource server与authorization server之间的交互方式。它们可以是一个整体，也可以是相互独立的服务。一个authorization server可以给多个resource server授权。
 
 
 (the end)
+
+[oauth2-core]: https://tools.ietf.org/html/rfc6749
+[bearer-token]: https://tools.ietf.org/html/rfc6750
+[introspection]: https://tools.ietf.org/html/rfc7662
