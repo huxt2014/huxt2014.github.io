@@ -1,0 +1,80 @@
+---
+layout: post
+title:  "HTTP协议：容易踩坑的一些边边角角"
+date:   2017-12-28 21:00:00 +0800
+categories: web
+tags: web
+---
+
+#### 1. HTTP中的资源是如何标识的。
+
+简单来讲，资源由URI标识，但是这个答案比较模糊。user agent通过URI来确定目标资源，但是目标资源不仅仅要被user agent理解，还要能被intermediary和origin server理解。所以，资源除了在user agent处用URI标识，还在HTTP message中以request target的方式标识，以及在origin server处以effective request URI的方式标识。
+
+常见的request target方式主要有两种，分别为origin-form和absolute-form，另外两种authority-form和authority-form仅用于CONNECT和OPTION。以http://www.example.org/where?q=now为例，前两种如下所示：
+{% highlight text %}
+
+GET /where?q=now HTTP/1.1
+Host: www.example.org
+
+GET http://www.example.org/where?q=now HTTP/1.1
+
+{% endhighlight %}
+
+effective request的主要判断逻辑如下（更细致的需要参考RFC）：
+
+* 如果origin server配置了固定的scheme，那么使用配置的scheme；如果请求来自https，那么scheme是https；如果都不是，那么scheme是http。
+* 如果origin server配置了固定的authority，那么使用配置的authority；如果Host header有非空的内容，那么使用Host header作为authority；如果都不是，那么使用origin server的server name。如果收到请求的端口不是对应scheme的默认端口，那么需要添加上端口。
+* 使用request target的其他信息拼接好absolute-URI。
+
+#### 2. Host header可能影响到origin server的什么行为
+
+如果一台origin server工作在多个域名／host name下，用这个header可以用来区分client请求的是哪个域名下的资源。
+
+根据effective request URI的生成规则，如果Host header设置不当，可能造成请求资源时得到意料之外的反馈。
+
+当涉及到公私钥的时候，origin server也可能根据不同的Host header选择不同的公私钥
+
+#### 3. HTTP message在解析时是如何处理编码／解码问题的
+
+首先，在将HTTP message分割成关键部分的时候，是不涉及编码／解码问题的，该过程仅仅将HTTP message当作一串byte来处理。所谓的分割，是指将HTTP message分割成start-line、header-filder、message-body，将start-line拆分成规定的段，将header-field分解成name:value等。
+
+对于非message-body，如果存在非ASCII字符，参照URI的编码／解码。
+
+在确定message-body的时候，需要结合Transfer-Encoding和Content-Length来判断。但是，这个过程也不会涉及编码／解码问题，处理的仅仅是可能存在的压缩／解压缩和chunked问题。
+
+在拿到message-body后，参考Content-Type或者message-body内的信息进行解码。Content-Type的示例如下所示：
+
+{% highlight text %}
+
+Content-Type:text/html;charset=utf-8
+             \_/  \__/\____________/
+              |    |       |
+           type sub-type  parameter
+
+{% endhighlight %}
+
+#### 4. HTTP message中message-body的长度是如何确定的
+
+
+由Transfer-Encoding和Content-Length确定，具体信息参考RFC。
+
+#### 5. URI是如何处理编码／解码问题的
+
+recipient拿到HTTP message后，按如下逻辑对URI进行解析：1）先用指定的分隔符将URI分段。2）将各段进行percent-decode，的到正确的byte。3）按照需要将byte解码。
+
+[RFC 7230](https://tools.ietf.org/html/rfc7230)和[RFC 3986](https://tools.ietf.org/html/rfc3986)并没有指定对byte按什么字符集进行编码／解码，根据message的上下文而定，例如相关header、message body中的信息。
+
+参考recipient的解析方式，sender按照适当的方法对URI进行编码就行了。对于非ASCII字符，可以有两种方法：1）将字符按照适当的字符集编码的到byte，对所有byte进行percent-encode。2）将字符按照适当的字符集编码的到byte，仅对关键的reserved code进行percent-encode。对于这两种方式，recipient最终拿到的byte都是一样的。
+
+此外，对于authority中的host有额外需要注意的地方。host中非ASCII的字符可以用IDNA encoding，因为这样符合域名解析的相关规范。要求不那么严格的话，也可以使用UTF-8编码。
+
+#### 6. 如何判断URI是否相同
+
+在HTTP的使用场景下，简单的做法是直接进行字符串的比较，但是通常的做法是对URI正规化之后再进行比较（参考RFC）。在不限定使用场景的情况下，严格意义上的比较是难以实现的。
+
+#### 7. HTTP协议是如何规避“lost update”问题的
+
+在Conditional Request部分有规范，通过相关Header规定origin server在进行对应操作前进行某些校验。例如，当PUT请求中有Last-Modified header时，origin server可以校验在GET和PUT之间有没有其他修改发生。
+
+(the end)
+
