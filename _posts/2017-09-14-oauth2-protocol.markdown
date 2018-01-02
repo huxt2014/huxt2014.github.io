@@ -102,7 +102,7 @@ OAuth规定通过scope字段来确定授权范围，也就是说，每个access 
 
 #### 3. Validate
 
-client访问resource server的时候需要携带access token，resource server必须对access token进行验证，然后确定client是否有对应的权限。为了完成这个工作，client必须在resource server处对access token进行验证（例如服务之间的通信），或者基于某种事先与resource server协商好的方法自行对access token进行验证（例如JWT）。对于这一块内容，[rfc6749][oauth2-core]并没有做相关的说明，所以如何鉴定access token很大程度上由具体实现来确定。
+client访问resource server的时候需要携带access token，resource server必须对access token进行验证，然后确定client是否有对应的权限。为了完成这个工作，resource server必须在Authorization server处对access token进行验证（例如通过服务之间的通信），或者基于某种事先与Authorization server协商好的方法自行对access token进行验证（例如JWT）。对于这一块内容，[rfc6749][oauth2-core]并没有做相关的说明，所以如何鉴定access token很大程度上由具体实现来确定。
 
 不过，与bearer token一样，另外有一个规范（[rfc7662][introspection]）提供了一个示例：Token Introspection。在这种方式中，Authorization server提供了一个Introspection Endpoint，resource server可以访问这个endpoint来验证access token的相关信息。
 

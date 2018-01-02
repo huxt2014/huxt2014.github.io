@@ -123,8 +123,9 @@ _PyObject_GC_Alloc(int use_calloc, size_t basicsize)
 2. 每个generation有threshold字段与count字段。对于g0而言，每创建一个container object，count加1。对于g1而言，每当g0进行了一次回收，count加1。g2的count增加规则类似于g1。
 3. 在默认情况下，垃圾回收由创建container object时触发，触发条件是g0.count > g0.threshold。触发之后对count > threshold的oldest generation进行回收。
 4. 对某个generation完成回收时，reachable object放到older generation中，对current generation和younger generation的count置0。
-5. 并不是所有的container object都会放在链表中，什么时候放入链表什么时候从链表剔除的逻辑更加复杂。
-6. 为了安全考虑，定义了__del__方法的对象及其引用的对象不会被gc回收，这些对象需要人工处理。
+5. 对unreachable object的处理方法是除去所有对其他对象的引用，包括slots中的引用和__dict__中的引用，由subtype_clear方法完成。
+6. 并不是所有的container object都会放在链表中，什么时候放入链表什么时候从链表剔除的逻辑更加复杂。
+7. 为了安全考虑，定义了__del__方法的对象及其引用的对象不会被gc回收，这些对象需要人工处理。
 
 
 # 小结
