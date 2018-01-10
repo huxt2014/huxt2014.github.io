@@ -12,11 +12,8 @@ gevent嫌弃Python实现的ioloop太慢了，所以封装了libev作为自己的
 
 ---
 
-gevent封装libev后，提供了调用libev的Python API。Python API的使用方法和libev的C API是类似的，要了解gevent中ioloop的使用方法，还是要从libev开始。
+gevent封装libev后，提供了调用libev的Python API。Python API的使用方法和libev的C API是类似的，要了解gevent中ioloop的使用方法，还是要从libev开始。以下是libev文档中对io事件提供的使用样例。
 
-以下是libev文档中提供的使用样例。通过文档和样例可以知道，libev将事件以及事件对应的callback函数封装成了watcher。对于文件的io事件，libev定义了ev_io。ev_io中记录了fd、事件类型以及callback函数，这些内容通过ev_io_init函数设置。ev_io_start将fd和事件类型注册到ioloop当中，当对应事件触发后就会调用callback函数了。ev_io_stop函数将fd和事件注销掉，ev_break停止ioloop。
-
-除了文件io事件外，libev还提供了其他的事件类型，比如说signal、timer等等，都是封装成了watcher。为简单起见，下文中主要以文件io为例。
 
 {% highlight c %}
 
@@ -56,6 +53,14 @@ main (void)
 
 {% endhighlight %}
 
+通过文档和样例可以知道，libev将事件以及事件对应的callback函数封装成了watcher。对于io事件，libev定义了ev_io类型的watcher，watcher中记录了fd、事件类型以及callback函数，这些内容通过ev_io_init函数设置。ev_io_start将fd和事件类型注册到ioloop当中，当对应事件触发后就会调用callback函数了。ev_io_stop函数将fd和事件注销掉，ev_break停止ioloop。
+
+除了文件io事件外，libev还提供了其他的事件类型，比如说signal、timer等等，都是封装成了watcher。为简单起见，下文中主要以文件io为例。
+
+# gevent提供的接口
+
+---
+
 了解libev的C API后，再来看看gevent是怎样使用封装之后的ioloop的。
 
 如下BaseServer可以当作是HTTP server，self.socket处于listen状态。为了将socket的io事件加入到ioloop中，gevent调用了loop.io来得到一个watcher对象。调用watcher.start设置callback函数，并且将watcher注册到ioloop当中。对比C API，就能大概猜到背后的逻辑了。
@@ -70,13 +75,69 @@ class BaseServer(object):
 
 {% endhighlight %}
 
-除了利用loop.io、loop.timer得到watcher之外，gevent内部还频繁使用了loop.run_callback。对于run_callback的实现，gevent利用了libev的一个用于扩展的watcher：ev_prepare。
-
-# io watcher与prepare watcher
+# gevent封装io watcher
 
 ---
 
-首先来看一下loop类的主要相关接口。初始化函数中设置了ev_preapre，这个watcher中的callback函数会在每次loop循环之前调用；io方法中返回了一个io对象；run_callback方法中将函数添加到了_callbacks中。
+注册一个io事件的关键接口在于loop的io方法和watcher的start方法，gevent的封装方式如下所示：
+
+{% highlight python %}
+
+cdef public class loop [object PyGeventLoopObject, type PyGeventLoop_Type]:
+
+    def io(self, int fd, int events, ref=True, priority=None):
+        return io(self, fd, events, ref, priority)
+
+
+cdef public class io(watcher) [object PyGeventIOObject, type PyGeventIO_Type]:
+    
+    cdef public loop loop
+    cdef object _callback           # Python callable object
+    cdef public tuple args
+    cdef readonly int _flags
+    cdef libev.ev_io _watcher
+
+    def __init__(self, loop loop, int fd, int events, ref=True, priority=None):
+        ...
+        # 初始化，设置了fd、事件以及callback
+        libev.ev_io_init(&self._watcher, <void *>gevent_callback_io, fd,
+                         events)
+        self.loop = loop
+        if ref:
+            self._flags = 0
+        else:
+            self._flags = 4
+        if priority is not None:
+            libev.ev_set_priority(&self._watcher, priority)
+
+    def start(self, object callback, *args, pass_events=False):
+        ...
+        # 之前注册的callback会调用这个
+        self.callback = callback
+        ...
+        # 注册到loop当中
+        libev.ev_io_start(self.loop._ptr, &self._watcher)
+        ...
+
+# 这个就是上面注册的callback了，展开宏之后得到
+static void gevent_callback_io(struct ev_loop *_loop, void *c_watcher,
+                               int revents) {
+
+    # 用c_watcher的地址可以找到对应PyGeventIOObject的地址，按照地址偏移量来确定
+    struct PyGeventIOObject* watcher = GET_OBJECT(PyGeventIOObject, c_watcher,
+                                                  _watcher);
+    # 调用 Python callable object
+    gevent_callback(watcher->loop, watcher->_callback, watcher->args,
+                    (PyObject*)watcher, c_watcher, revents);
+}
+
+{% endhighlight %}
+
+# gevent封装ev_preapre
+
+---
+
+在一个loop中，通常都会有一系列callback在每次loop之前／之后执行，这些callback可能是一次性的，也可能是周期性的。gevent自己的loop当然也有这个功能，通过loop.run_callback向外提供了接口。对于run_callback的实现，gevent利用了libev的一个用于扩展的watcher：ev_prepare，如下所示：
 
 {% highlight python %}
 
@@ -104,96 +165,14 @@ cdef public class loop [object PyGeventLoopObject, type PyGeventLoop_Type]:
         libev.ev_unref(self._ptr)
         self._callbacks = []
 
-    def io(self, int fd, int events, ref=True, priority=None):
-        return io(self, fd, events, ref, priority)
-
     def run_callback(self, func, *args):
-        
+
         if not self._ptr:
             raise ValueError('operation on destroyed loop')
         cdef callback cb = callback(func, args)
         self._callbacks.append(cb)
         libev.ev_ref(self._ptr)
         return cb
-
-{% endhighlight %}
-
-
-进一步来看看io类的实现，比较直观，如下所示。
-
-{% highlight python %}
-
-cdef public class io(watcher) [object PyGeventIOObject, type PyGeventIO_Type]:
-    
-    cdef public loop loop
-    cdef object _callback           # Python callable object
-    cdef public tuple args
-    cdef readonly int _flags
-    cdef libev.ev_io _watcher
-
-    def __init__(self, loop loop, int fd, int events, ref=True, priority=None):
-        ...
-        libev.ev_io_init(&self._watcher, <void *>gevent_callback_io, fd,
-                         events)
-        self.loop = loop
-        if ref:
-            self._flags = 0
-        else:
-            self._flags = 4
-        if priority is not None:
-            libev.ev_set_priority(&self._watcher, priority)
-
-    def start(self, object callback, *args, pass_events=False):
-        ...
-        self.callback = callback
-        ...
-        libev.ev_io_start(self.loop._ptr, &self._watcher)
-        ...
-
-
-# 展开宏之后得到
-static void gevent_callback_io(struct ev_loop *_loop, void *c_watcher,
-                               int revents) {
-
-    # 用c_watcher的地址可以找到对应PyGeventIOObject的地址
-    # 因为c_watcher是PyGeventIOObject的_watcher	
-    struct PyGeventIOObject* watcher = GET_OBJECT(PyGeventIOObject, c_watcher,
-                                                  _watcher);
-    # 调用 Python callable object
-    gevent_callback(watcher->loop, watcher->_callback, watcher->args,
-                    (PyObject*)watcher, c_watcher, revents);
-}
-{% endhighlight %}
-
-
-prepare watcher的作用是在每次loop循环之前调用gevent_run_callbacks函数，接下来看看这个函数里面都做了什么。
-
-{% highlight python %}
-static void gevent_run_callbacks(struct ev_loop *_loop, void *watcher,
-                                 int revents) {
-    struct PyGeventLoopObject* loop;
-    PyObject *result;
-    GIL_DECLARE;
-    GIL_ENSURE;
-    # 用watcher的地址可以找到PyGeventLoopObject的地址
-    # 因为这个watcher是PyGeventLoopObject的_prepare
-    loop = GET_OBJECT(PyGeventLoopObject, watcher, _prepare);
-    Py_INCREF(loop);
-    gevent_check_signals(loop);
-    # 貌似就是loop定义中的 cdef _run_callbacks
-    result = ((_GEVENTLOOP *)loop->__pyx_vtab)->_run_callbacks(loop);
-    if (result) {
-        Py_DECREF(result);
-    }
-    else {
-        PyErr_Print();
-        PyErr_Clear();
-    }
-    Py_DECREF(loop);
-    GIL_RELEASE;
-
-
-cdef public class loop [object PyGeventLoopObject, type PyGeventLoop_Type]:
 
     cdef _run_callbacks(self):
         cdef callback cb
@@ -210,9 +189,31 @@ cdef public class loop [object PyGeventLoopObject, type PyGeventLoop_Type]:
         if self._callbacks:
             libev.ev_timer_start(self._ptr, &self._timer0)
 
-}
+
+static void gevent_run_callbacks(struct ev_loop *_loop, void *watcher,
+                                 int revents) {
+    struct PyGeventLoopObject* loop;
+    PyObject *result;
+    GIL_DECLARE;
+    GIL_ENSURE;
+    # 用watcher的地址可以找到PyGeventLoopObject的地址，通过地址偏移来确认
+    loop = GET_OBJECT(PyGeventLoopObject, watcher, _prepare);
+    Py_INCREF(loop);
+    gevent_check_signals(loop);
+    # 貌似就是loop定义中的 cdef _run_callbacks
+    result = ((_GEVENTLOOP *)loop->__pyx_vtab)->_run_callbacks(loop);
+    if (result) {
+        Py_DECREF(result);
+    }
+    else {
+        PyErr_Print();
+        PyErr_Clear();
+    }
+    Py_DECREF(loop);
+    GIL_RELEASE;
 
 {% endhighlight %}
+
 
 # 小结
 
