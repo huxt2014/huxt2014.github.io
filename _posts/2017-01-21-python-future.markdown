@@ -14,6 +14,8 @@ tags: python
 
 # future in ThreadPoolExecutor
 
+---
+
 先来看一个简单的例子，如下所示。
 
 {% highlight python %}
@@ -99,6 +101,8 @@ class Future(object):
 
 # future in ProcessPoolExecutor
 
+---
+
 上面介绍完了future在线程并发中的作用，接下来看看ProcessPoolExecutor封装的进程并发。
 
 从源码中可以看到，ProcessPoolExecutor用的future对象和ThreadPoolExecutor中用到的future对象属于同一个类，提供了几乎一样的功能。初看之下感觉很不合理啊，因为Future类中同步用的是threading.Condition，理应不能用到进程间同步的啊。这其中的原因，就要从ProcessPoolExecutor的设计思想中寻找了。
@@ -110,6 +114,8 @@ ProcessPoolExecutor对象存在于当前进程中，其负责管理当前进程�
 理解以上原理后，很容易就能在源码中找到对应的实现了。
 
 # future in asyncio
+
+---
 
 在asyncio模块中，依然有Future类的存在，这个类的实现独立于concurrent包中的Future类，但是有类似的功能：placeholder、callback以及等待。不同的是，这个Future类用于coroutine中，所谓的等待是异步等待。
 
@@ -131,10 +137,9 @@ class Future:
     
     def __iter__(self):
         if not self.done():
-            print(datetime.now())
             self._blocking = True
             yield self  # This tells Task to wait for completion.
-        print(datetime.now())
+
         assert self.done(), "yield from wasn't used with future"
         return self.result()  # May raise too.
 

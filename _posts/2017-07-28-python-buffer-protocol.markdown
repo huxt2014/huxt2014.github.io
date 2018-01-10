@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "深入Python：Buffer Protocol和Numpy实现"
+title:  "Python基础：Buffer Protocol和Numpy实现"
 date:   2017-07-28 21:00:00 +0800
 categories: python
 tags: python

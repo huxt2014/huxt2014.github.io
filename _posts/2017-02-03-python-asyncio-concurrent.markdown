@@ -12,6 +12,8 @@ asyncio是Python 3中加入的标准库，在这个标准库中加入了ioloop�
 
 # sleep 函数
 
+---
+
 对于coroutine，以及sleep的使用，就从官方示例开始说起吧，示例如下所示。
 
 {% highlight python %}
@@ -180,20 +182,15 @@ _step中第一次send时，sleep中的future对象是没有完成的。所以，
 
 # socket 异步IO
 
+---
+
 理解了上述过程后，对于socket的异步IO也会很好理解了，这里来看一下BaseSelectorEventLoop.sock_recv的实现。
 {% highlight python %}
 # asyncio/selector_events.py
 
 class BaseSelectorEventLoop(base_events.BaseEventLoop):
     def sock_recv(self, sock, n):
-        """Receive data from the socket.
 
-        The return value is a bytes object representing the data received.
-        The maximum amount of data to be received at once is specified by
-        nbytes.
-
-        This method is a coroutine.
-        """
         if self._debug and sock.gettimeout() != 0:
             raise ValueError("the socket must be non-blocking")
         fut = self.create_future()
@@ -223,15 +220,17 @@ class BaseSelectorEventLoop(base_events.BaseEventLoop):
 
 {% endhighlight %}
 
-注释表示这个方法是coroutine，其实我觉得称之为awaitable更准确。这是一个普通的函数，之所以可以用于await，是因为它返回一个future对象，而future可以用于await。下面来看看这个方法的执行逻辑。
+注释表示sock_recv是coroutine，其实我觉得称之为awaitable更准确。这是一个普通的函数，之所以可以用于await，是因为它返回一个future对象，而future可以用于await。下面来看看这个方法的执行逻辑。
 
-首先，sock应该是处于非阻塞模式的。如果sock可以读到指定长度的数据，那么数据会写到future中，然后该future被返回。从future的实现中可以看到，await一个已经有结果的future会立即抛出StopIteration+result，然后await作为一个expression就有值了。这个时候是不会被挂起的。
+首先，sock应该是处于非阻塞模式的。如果sock可以读到数据，那么数据会写到future中，然后该future被返回。从future的实现中可以看到，await一个已经有结果的future会立即抛出StopIteration+result，然后await作为一个expression就有值了。这个时候是不会被挂起的。
 
-如果sock没办法读到指定长度的数据，那么会抛出BlockingIOError，这个时候sock会放到ioloop中监听读事件。虽然future中没有结果，但是依然会被立即返回。await一个未完成的future，执行逻辑和sleep是一样的。
+如果sock没办法读到数据，那么会抛出BlockingIOError，这个时候sock会放到ioloop中监听读事件。虽然future中没有结果，但是依然会被立即返回。await一个未完成的future，执行逻辑和sleep是一样的。
 
 每次sock可读后，_sock_recv都会被再次被执行，直到能读到数据为止。这个时候，数据被写入future，future调用done_callback，然后执行_step，然后await就有值了。在这个等待过程中，ioloop是可以干其他事的，并没有被block。
 
 # 小结
+
+---
 
 从以上两个例子可以大概看出Python 3中native coroutine是如何并发以及如何调度的。其中，并发是依赖于ioloop，调度是依赖于send和yield。
 

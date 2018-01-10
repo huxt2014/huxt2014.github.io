@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "深入Python：内置dict类型的实现"
+title:  "Python基础：内置dict类型的实现"
 date:   2017-08-22 21:00:00 +0800
 categories: python
 tags: python

@@ -6,11 +6,11 @@ categories: python
 tags: python
 ---
 
-继gevent之后，又慢慢在填python native coroutine的坑。虽说属于CPython官方原生支持，但是为啥native coroutine感觉没有gevent那么直观呢。不过好歹也算是慢慢弄懂了，用帖子来记录一下对native coroutine的理解。
-
-native coroutine以及await、async def是由[PEP 492][PEP0492]提出并确认的。这个PEP在2015年才被创建，感觉是属于比较新的内容，新出现的东西网上资料可能相对难找，所以就从PEP啃起吧。PEP 492中提到希望读者已经了解了[PEP 342][PEP0342]和[PEP 380][PEP0380]，尼玛这是买一赠二啊。虽然不太情愿，但是为了保证知识的连贯性，也只有从头开始了。
+native coroutine以及await、async def是由[PEP 492][PEP0492]提出并确认的。这个PEP在2015年才被创建，感觉是属于比较新的内容，新出现的东西网上资料可能相对难找，所以就从PEP啃起吧。PEP 492中提到希望读者已经了解了[PEP 342][PEP0342]和[PEP 380][PEP0380]，尼玛这是买一赠二啊。
 
 # 遥远的年代
+
+---
 
 很久很久以前，当Python中还只有iteration protocol和generator的时候，故事远远没有现在这么复杂。generator让我们可以利用yield，通过写函数来快速地实现iterable。是的，就像如下代码那样简单。
 
@@ -33,6 +33,8 @@ Out[26]: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
 若干次重入和挂起之后，如果再次重入的时候，generator的函数体执行完了/像函数一样返回了/执行不到下一个yield了（这三个说法是一个意思），那么就会抛出一个StopIteration。Iteration context会捕获这个异常，然后知道迭代完了，可以执行后面的代码了。捕获StopIteration时，iteration context只知道不会再有新的东西被yield出来了，其并不关心generator有没有提供额外的信息。
 
 # 从statement到expression
+
+---
 
 2005年[PEP 342][PEP0342]被创建的时候，已经有coroutine的概念了。这个PEP中将yield由statement转变为了expression，并且为generator增加了send、throw、close等方法。增加这些内容的主要目的，就是让caller可以向generator里面传递对象，而不仅仅是generator向caller传递对象。
 
@@ -62,6 +64,8 @@ Out[31]: 0
 在这个年代，StopIteration依旧是起一个提示作用，caller并不关心generator结束时候的状态。
 
 # yield from和subgenerator
+
+---
 
 2009年，[PEP 380][PEP0380]被创建，在这个PEP中，有了subgenerator的概念以及yield from（这是一个expression），并且generator在结束时可以向caller返回对象了。
 
@@ -128,6 +132,8 @@ StopIteration: return from gen
 {% endhighlight %}
 
 # native coroutine
+
+---
 
 从generator的演变历程上可以看到，Python利用generator来达到了coroutine的效果，但是这容易将generator与coroutine搞混淆。为了修正这个问题，[PEP 492][PEP0492]被创建出来。这个PEP中提出了新的关键字async def 和await，利用这两个关键字将coroutine与generator分割开来。
 
