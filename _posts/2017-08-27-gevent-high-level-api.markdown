@@ -49,7 +49,10 @@ class Greenlet(greenlet):
     # 继承greenlet
 
     def __init__(self, run=None, *args, **kwargs):
-        # 所有的协程都有一个共同的parent
+        # hub是一个greenlet，它里面维护了一个loop，它的run方法就是运行loop。
+        # get_hub()保证了每个线程里面只有一个hub，所以同一线程里的所有的协程都有一个
+        # 共同的parent。
+        # 如果需要访问loop，通常会使用self.parent.loop或者get_hub().loop
         greenlet.__init__(self, None, get_hub())
 
         if run is not None:
@@ -70,28 +73,6 @@ class Greenlet(greenlet):
 
     def run(self):
         # 重载了run方法，调用 self._run
-        ...
-
-
-def get_hub(*args, **kwargs):
-
-    # 每个线程中只有一个hub
-    hub = _threadlocal.hub
-    if hub is None:
-        hubtype = get_hub_class()
-        hub = _threadlocal.hub = hubtype(*args, **kwargs)
-    return hub
-
-
-class Hub(RawGreenlet):
-    # 继承greenlet
-
-    def __init__(self, loop=None, default=None):
-        # initial self.loop
-        ...
-
-    def run():
-        # 重载了run方法，调用switch切换到hub后就会启动loop
         ...
 
 
@@ -118,25 +99,23 @@ class Hub(RawGreenlet):
 
 join在线程当中用于阻塞当前线程的运行，等待目标线程执行完毕，在gevent中的效果也是这样，只不过是通过异步io来实现的。从下面源码可以看到，对于“挂起逻辑A，等逻辑B执行完成后再执行A”这类操作的实现，gevent和其他异步io框架是类似的。对于上述的例子而言，就是将main挂载到g的_links上，然后切换到hub上，hub中loop会调度g的运行，g运行完成之后会将调用_links上挂载的东西，也就是返回到main当中。
 
-对于Timeout的实例，其实现的原理就是通过loop.timer启动一个定时任务，这个任务就是抛出异常。
-
 {% highlight python %}
 class Greenlet(greenlet):
 
     def join(self, timeout=None):
         ...
-        # 当前的greenlet，可能是main，也可能是其他协程
+        # 当前的greenlet，也就是调用self的greenlet
         switch = getcurrent().switch
+        # 将当前greenlet的switch放到rawlink当中，当self运行完的时候会调用rawlink
         self.rawlink(switch)
         try:
+            # 在这里可以看到Timeout是如何使用的
             t = Timeout._start_new_or_dummy(timeout)
             try:
-                # 所有Greenlet的parent都是hub
+                # 所有Greenlet的parent都是hub，所以join过后执行逻辑转到loop，
+                # 当前greenlet被挂起
                 result = self.parent.switch()
-                if result is not self:
-                    raise InvalidSwitchError(
-                             'Invalid switch into Greenlet.join(): %r'
-                             % (result, ))
+                ...
             finally:
                 t.cancel()
         except Timeout as ex:
@@ -147,28 +126,8 @@ class Greenlet(greenlet):
             self.unlink(switch)
             raise
 
-    def rawlink(self, callback):
-        ...
-        self._links.append(callback)
-        if self.ready() and self._links and not self._notifier:
-            self._notifier = self.parent.loop.run_callback(self._notify_links)
-
-    @Lazy
-    def _links(self):
-        return deque()
-
-    def run(self):
-        result = self._run(*self.args, **self.kwargs)
-        self._report_result(result)
-
-    def _report_result(self, result):
-        self._exc_info = (None, None, None)
-        self.value = result
-        if self._has_links() and not self._notifier:
-            # 放到loop当中
-            self._notifier = self.parent.loop.run_callback(self._notify_links)
-
     def _notify_links(self):
+        # self运行完的时候会调用所有的rawlink，从而切回到当前greenlet
         while self._links:
             link = self._links.popleft()
             try:
@@ -176,54 +135,13 @@ class Greenlet(greenlet):
             except: # pylint:disable=bare-except
                 self.parent.handle_error((link, self), *sys.exc_info())
 
-class Timeout(BaseException):
-
-    def __init__(self, seconds=None, exception=None, ref=True, priority=-1, 
-                 _use_timer=True):
-        BaseException.__init__(self)
-        self.seconds = seconds
-        self.exception = exception
-        if seconds is None or not _use_timer:
-            self.timer = _FakeTimer
-        else:
-            self.timer = get_hub().loop.timer(seconds or 0.0, ref=ref,
-                                              priority=priority)
-
-    def start(self):
-        """Schedule the timeout."""
-        assert not self.pending
-        if self.seconds is None:  # "fake" timeout (never expires)
-            return
-
-        if (self.exception is None
-           or self.exception is False
-           or isinstance(self.exception, string_types)):
-            # timeout that raises self
-            self.timer.start(getcurrent().throw, self)
-        else:  # regular timeout with user-provided exception
-            self.timer.start(getcurrent().throw, self.exception)
-
-    @classmethod
-    def start_new(cls, timeout=None, exception=None, ref=True):
-        ...
-        timeout = cls(timeout, exception, ref=ref)
-        timeout.start()
-        return timeout
-
-    @staticmethod
-    def _start_new_or_dummy(timeout, exception=None):
-
-        if timeout is None:
-            return _FakeTimer
-        return Timeout.start_new(timeout, exception)
-
 {% endhighlight %}
 
-# sleep
+# sleep与waiter
 
 ---
 
-对于sleep的实现方法，理解下面的源码后也就一目了然了。其中值得注意的是，Gevent通过Waiter提供了一个相对通用的接口。
+对于sleep的实现方法，理解下面的源码后也就一目了然了。其中值得注意的是，Gevent通过Waiter提供了一个相对通用的接口，从而减少了对getcurrent、switch等这类底层接口的使用频率。
 
 {% highlight python %}
 
@@ -240,43 +158,13 @@ def sleep(seconds=0, ref=True):
         hub.wait(loop.timer(seconds, ref=ref))
 
 
-class Waiter(object):
-
-    def switch(self, value=None):
-        greenlet = self.greenlet
-        if greenlet is None:
-            self.value = value
-            self._exception = None
-        else:
-            assert getcurrent() is self.hub
-            switch = greenlet.switch
-            try:
-                switch(value)
-            except:
-                self.hub.handle_error(switch, *sys.exc_info())
-
-    def get(self):
-        if self._exception is not _NONE:
-            if self._exception is None:
-                return self.value
-            else:
-                getcurrent().throw(*self._exception)
-        else:
-            if self.greenlet is not None:
-                raise ConcurrentObjectUseError()
-            self.greenlet = getcurrent()
-            try:
-                return self.hub.switch()
-            finally:
-                self.greenlet = None
-
-
 class Hub(RawGreenlet):
 
     def wait(self, watcher):
         waiter = Waiter()
         unique = object()
-        # 相当于watcher的事件发生之后执行getcurrent().switch
+        # 相当于watcher的事件发生之后执行waiter.switch，
+        # 也就是getcurrent().switch
         watcher.start(waiter.switch, unique)
         try:
             # 相当于hub.switch()
