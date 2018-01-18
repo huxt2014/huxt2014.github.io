@@ -1,14 +1,13 @@
 ---
 layout: post
-title:  "SQLAlchemy QueuePool浅析"
+title:  "SQLAlchemy：QueuePool浅析"
 date:   2017-01-16 19:48:08 +0800
 categories: python sqlalchemy
 tags: web
 ---
 
-之前已经确定了让mysqlclient支持gevent异步IO的方法，实现起来还是比较方便的，但是对于SQLAlchemy中的connection pool是否支持gevent还是有一定疑虑。因为一般pool中会用到lock同步，而thread的lock肯定是和coroutine的lock是有差别的。
 
-看了一遍SQLAlchemy QueuePool的源码，很快发现monkey patch可以解决问题。此外，对于官方文档介绍的QueuePool以及connection的一些特性，在源码中可以看到是如何实现的，在此记录一下。
+这篇文章主要记录一下SQLAlchemy中连接池的一些特性是如何实现的。
 
 # lazy initialization 和 overflow
 
