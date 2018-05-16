@@ -18,6 +18,14 @@ UDP不像TCP那样有三次握手的过程，无法通过发起连接来事先�
 
 需要注意的是，内核收到ICMP包后不一定会将相关信息反馈给应用层。应用层只有对socket调用了connect，或者设置了IP_RECVERR，才能获得这个信息，否则无法获得。
 
+#### 3. 发送、接收数据时的timeout问题
+
+Timeout的问题可以从两个层面来看，第一个是系统调用的层面，第二个是语言的层面。
+
+从系统调用的层面来说，Linux的socket支持SO_RCVTIMEO和SO_SNDTIMEO，通过这个两个设置可以让系统调用在底层处理timeout问题，应用层仅需要关心系统调用的返回结果就行。
+
+从语言的层面来说，以Python为例，Python的socket有settimeout这个接口，但其实现方式是在C层面用epoll/select来实现的。这种方式算虽然从Python代码的层面没有额外的函数调用，但是依旧算是在应用层解决timeout问题。
+
 
 (the end)
 
